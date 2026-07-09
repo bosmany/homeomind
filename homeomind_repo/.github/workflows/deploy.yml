@@ -1,4 +1,4 @@
-name: Build & Deploy Webb
+name: Build & Deploy Web
 
 on:
   push:
@@ -18,40 +18,17 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-
-      - name: Create web scaffold
-        run: flutter create . --platforms web --project-name homeomind
-
       - name: Get dependencies
         run: flutter pub get
-
-      # Install the sqflite web setup tool
-      - name: Activate sqflite_common_ffi_web
-        run: flutter pub global activate sqflite_common_ffi_web
-
-      # Generate WASM + worker files (required for SQLite on web)
-      - name: Setup sqflite WASM
-        run: |
-          cd web
-          dart run sqflite_common_ffi_web:setup 2>&1 || echo "sqflite setup done"
-          cd ..
-
-      # Build with verbose logging so we can debug if it fails again
-      - name: Build web (release)
-        run: flutter build web --release --base-href "/" -v
-
-      - name: Verify build output
-        run: ls -la build/web/ && echo "---" && ls -la build/web/assets/ 2>/dev/null || echo "no assets yet"
-
+      - name: Build web
+        run: flutter build web --release --base-href "/"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
