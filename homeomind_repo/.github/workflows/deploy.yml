@@ -1,0 +1,52 @@
+# Builds Flutter web on every push to main and deploys to GitHub Pages.
+# Result: your app is live at https://findbilal.online/
+name: Build & Deploy Web
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # Repo ships lib/ + pubspec only; generate the web platform scaffold.
+      - name: Create web scaffold
+        run: flutter create . --platforms web --project-name homeomind
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Generates web/sqflite_sw.js + sqlite3.wasm required by sqflite on web.
+      - name: Setup sqflite web worker
+        run: dart run sqflite_common_ffi_web:setup
+
+      # Custom domain (findbilal.online) serves at the root → base-href "/".
+      # If you ever remove the domain and use <user>.github.io/homeomind/,
+      # change this back to --base-href "/homeomind/".
+      - name: Build web (release)
+        run: flutter build web --release --base-href "/"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
