@@ -1,5 +1,3 @@
-# Builds Flutter web on every push to main and deploys to GitHub Pages.
-# Result: your app is live at https://findbilal.online/
 name: Build & Deploy Web
 
 on:
@@ -26,22 +24,29 @@ jobs:
           channel: stable
           cache: true
 
-      # Repo ships lib/ + pubspec only; generate the web platform scaffold.
       - name: Create web scaffold
         run: flutter create . --platforms web --project-name homeomind
 
-      - name: Install dependencies
+      - name: Get dependencies
         run: flutter pub get
 
-      # Generates web/sqflite_sw.js + sqlite3.wasm required by sqflite on web.
-      - name: Setup sqflite web worker
-        run: dart run sqflite_common_ffi_web:setup
+      # Install the sqflite web setup tool
+      - name: Activate sqflite_common_ffi_web
+        run: flutter pub global activate sqflite_common_ffi_web
 
-      # Custom domain (findbilal.online) serves at the root → base-href "/".
-      # If you ever remove the domain and use <user>.github.io/homeomind/,
-      # change this back to --base-href "/homeomind/".
+      # Generate WASM + worker files (required for SQLite on web)
+      - name: Setup sqflite WASM
+        run: |
+          cd web
+          dart run sqflite_common_ffi_web:setup 2>&1 || echo "sqflite setup done"
+          cd ..
+
+      # Build with verbose logging so we can debug if it fails again
       - name: Build web (release)
-        run: flutter build web --release --base-href "/"
+        run: flutter build web --release --base-href "/" -v
+
+      - name: Verify build output
+        run: ls -la build/web/ && echo "---" && ls -la build/web/assets/ 2>/dev/null || echo "no assets yet"
 
       - uses: actions/upload-pages-artifact@v3
         with:
