@@ -10,6 +10,10 @@ permissions:
   pages: write
   id-token: write
 
+defaults:
+  run:
+    working-directory: homeomind_repo   # ← THE FIX: your files live here
+
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
@@ -18,26 +22,28 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-      
-      # Remove broken web folder if it exists, regenerate clean
-      - name: Clean web folder
-        run: rm -rf web && flutter create . --platforms web --project-name homeomind
-      
+
+      - name: Create web platform
+        run: flutter create . --platforms web --project-name homeomind
+
       - name: Get dependencies
         run: flutter pub get
-      
+
+      - name: Setup sqflite for web
+        run: dart run sqflite_common_ffi_web:setup
+
       - name: Build web
         run: flutter build web --release --base-href "/"
-      
+
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: build/web
-      
+          path: homeomind_repo/build/web   # ← also points into the folder
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
