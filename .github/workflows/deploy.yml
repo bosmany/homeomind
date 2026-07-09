@@ -18,17 +18,26 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
+      
+      # Remove broken web folder if it exists, regenerate clean
+      - name: Clean web folder
+        run: rm -rf web && flutter create . --platforms web --project-name homeomind
+      
       - name: Get dependencies
         run: flutter pub get
+      
       - name: Build web
         run: flutter build web --release --base-href "/"
+      
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
+      
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
