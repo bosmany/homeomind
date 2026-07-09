@@ -22,8 +22,6 @@ jobs:
         with:
           channel: stable
           cache: true
-      - name: Create web scaffold
-        run: flutter create . --platforms web --project-name homeomind
       - name: Get dependencies
         run: flutter pub get
       - name: Build web
