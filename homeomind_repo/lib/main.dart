@@ -1,7 +1,4 @@
-// main.dart
-// HomeoMind — high-contrast dark theme + simple router.
-// FIX: previous version fed a light textTheme into darkTheme → black-on-black.
-// Dark text styles are now derived from a dark Typography base.
+// main.dart — HomeoMind: high-contrast dark theme + router.
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,12 +18,10 @@ class HomeoMindApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFF35C982); // brighter green reads well on dark
+    const seed = Color(0xFF35C982);
     final scheme =
         ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark);
 
-    // CRITICAL: build text styles from a DARK base so colors are white/near-
-    // white. GoogleFonts.interTextTheme() with no argument bakes in black.
     final darkText = GoogleFonts.interTextTheme(
       ThemeData(brightness: Brightness.dark).textTheme,
     ).apply(bodyColor: Colors.white, displayColor: Colors.white).copyWith(
@@ -41,7 +36,7 @@ class HomeoMindApp extends StatelessWidget {
     return MaterialApp(
       title: 'HomeoMind',
       debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.dark, // forced high-contrast dark, per requirement
+      themeMode: ThemeMode.dark,
       darkTheme: ThemeData(
         useMaterial3: true,
         colorScheme: scheme,
@@ -55,7 +50,7 @@ class HomeoMindApp extends StatelessWidget {
           titleTextStyle: GoogleFonts.fraunces(
               fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white),
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           elevation: 0,
           color: const Color(0xFF17231C),
           margin: const EdgeInsets.symmetric(vertical: 6),
@@ -95,12 +90,11 @@ class HomeoMindApp extends StatelessWidget {
           contentTextStyle: TextStyle(color: Colors.white),
         ),
       ),
-      // -------- Router --------
       initialRoute: '/',
       routes: {
-        '/': (_) => const PatientHomeScreen(), // patient booking UI
-        '/doc': (_) => const DocLoginScreen(), // doctor login (demo123)
-        '/dashboard': (_) => const DashboardScreen(), // after login
+        '/': (_) => const PatientHomeScreen(),
+        '/doc': (_) => const DocLoginScreen(),
+        '/dashboard': (_) => const DashboardScreen(),
         '/new-case': (_) => const CaseDetailScreen(),
       },
     );
