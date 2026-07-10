@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import '../data/ai_service.dart';
 import '../data/db_helper.dart';
 import '../models/case_model.dart';
+import 'voice_input.dart';
 
 class CaseDetailScreen extends StatefulWidget {
   const CaseDetailScreen({super.key, this.existingCase});
@@ -28,6 +29,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
   bool _saving = false;
   bool _viewMode = false;
   bool _analyzing = false;
+  bool _extracting = false;
 
   // ---- keyed text controllers -------------------------------------------
   final _ctrl = <String, TextEditingController>{};
@@ -39,14 +41,8 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
   String _sex = '';
   final Set<String> _nature = {};
   static const _natureOptions = [
-    'Mild',
-    'Irritable',
-    'Reserved',
-    'Sensitive',
-    'Ambitious',
-    'Fastidious',
-    'Responsible',
-    'Anxious',
+    'Mild', 'Irritable', 'Reserved', 'Sensitive',
+    'Ambitious', 'Fastidious', 'Responsible', 'Anxious',
   ];
   String _gnmPhase = '';
   String _thermals = '';
@@ -56,11 +52,13 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
     super.initState();
     final c = widget.existingCase;
     if (c != null) {
-      _viewMode = true;
+      _viewMode = true; // existing cases open in read-only preview
       _prefill(c);
     }
   }
 
+  /// Copies an existing case into the keyed controllers + choice state so
+  /// the Stepper is fully pre-filled the moment the user taps 'Edit'.
   void _prefill(HomeoCase c) {
     _c('caseNo').text = c.caseNo;
     _c('date').text = c.date;
@@ -77,6 +75,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
     _c('cc.concomitants').text = cc.concomitants;
     _c('cc.duration').text = cc.duration;
     _c('cc.onset').text = cc.onsetAilmentsFrom;
+    _c('cc.additional').text = cc.additional;
 
     _nature.addAll(c.mind.nature.where(_natureOptions.contains));
     _c('mind.natureOther').text =
@@ -112,6 +111,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
     _c('rx.dose').text = c.prescription.dose;
     _c('rx.advice').text = c.prescription.advice;
 
+    // The form edits the FIRST follow-up; later entries are preserved on save.
     if (c.followUps.isNotEmpty) {
       final fu = c.followUps.first;
       _c('fu.date').text = fu.date;
@@ -129,6 +129,10 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
     }
     super.dispose();
   }
+
+  // -------------------------------------------------------------------------
+  // Save
+  // -------------------------------------------------------------------------
 
   List<String> _lines(String key) => _v(key)
       .split('\n')
@@ -156,6 +160,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
         concomitants: _v('cc.concomitants'),
         duration: _v('cc.duration'),
         onsetAilmentsFrom: _v('cc.onset'),
+        additional: _v('cc.additional'),
       ),
       mind: MindAssessment(
         nature: [..._nature, ..._lines('mind.natureOther')],
@@ -194,19 +199,17 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
         dose: _v('rx.dose'),
         advice: _v('rx.advice'),
       ),
-      followUps: const [],
+      followUps: const [], // follow-ups are added post-consultation
     );
   }
 
   Future<void> _saveCase() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
-      setState(() => _currentStep = 0);
+      setState(() => _currentStep = 0); // jump to the step with errors
       return;
     }
-
     setState(() => _saving = true);
     final existing = widget.existingCase;
-
     try {
       if (existing == null) {
         await DatabaseHelper.instance.insertCase(_assembleCase());
@@ -214,36 +217,33 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
         final updated = _assembleCase()
           ..id = existing.id
           ..createdAt = existing.createdAt;
-
+        // The form edits only the first follow-up; carry over later entries.
         if (existing.followUps.length > 1) {
           updated.followUps = [
             ...updated.followUps,
             ...existing.followUps.skip(1),
           ];
         }
-
         await DatabaseHelper.instance.updateCase(updated);
       }
-
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(existing == null ? 'Case saved' : 'Case updated'),
-        ),
+            content: Text(existing == null ? 'Case saved' : 'Case updated')),
       );
-
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-
       setState(() => _saving = false);
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Save failed: $e')),
+        SnackBar(content: Text('Save failed: $e')), // e.g. duplicate case no.
       );
     }
   }
+
+  // -------------------------------------------------------------------------
+  // Reusable field builders
+  // -------------------------------------------------------------------------
 
   Widget _tf(
     String key,
@@ -252,6 +252,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
     String? hint,
     TextInputType? keyboard,
     String? Function(String?)? validator,
+    bool mic = false,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -263,6 +264,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
+          suffixIcon: mic ? MicButton(controller: _c(key)) : null,
         ),
       ),
     );
@@ -270,83 +272,72 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
 
   Widget _sectionLabel(String text) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-              ),
-        ),
+        child: Text(text,
+            style: Theme.of(context)
+                .textTheme
+                .labelLarge
+                ?.copyWith(color: Theme.of(context).colorScheme.primary)),
       );
 
-  Widget _buildPatientStep() => Column(
-        children: [
-          _tf(
-            'p.name',
-            'Patient name *',
+  // -------------------------------------------------------------------------
+  // Step contents (one private method per section)
+  // -------------------------------------------------------------------------
+
+  Widget _buildPatientStep() => Column(children: [
+        _tf('p.name', 'Patient name *',
             validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+                (v == null || v.trim().isEmpty) ? 'Name is required' : null),
+        Row(children: [
+          Expanded(
+            child: _tf('p.age', 'Age', keyboard: TextInputType.number),
           ),
-          Row(
-            children: [
-              Expanded(
-                child: _tf(
-                  'p.age',
-                  'Age',
-                  keyboard: TextInputType.number,
-                ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'M', label: Text('M')),
+                  ButtonSegment(value: 'F', label: Text('F')),
+                  ButtonSegment(value: 'Other', label: Text('Other')),
+                ],
+                selected: _sex.isEmpty ? {} : {_sex},
+                emptySelectionAllowed: true,
+                onSelectionChanged: (s) =>
+                    setState(() => _sex = s.isEmpty ? '' : s.first),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'M', label: Text('M')),
-                      ButtonSegment(value: 'F', label: Text('F')),
-                      ButtonSegment(value: 'Other', label: Text('Other')),
-                    ],
-                    selected: _sex.isEmpty ? {} : {_sex},
-                    emptySelectionAllowed: true,
-                    onSelectionChanged: (s) =>
-                        setState(() => _sex = s.isEmpty ? '' : s.first),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-          _tf('p.occupation', 'Occupation'),
-          _tf(
-            'caseNo',
-            'Case No. *',
+        ]),
+        _tf('p.occupation', 'Occupation'),
+        _tf('caseNo', 'Case No. *',
             validator: (v) => (v == null || v.trim().isEmpty)
                 ? 'Case number is required'
-                : null,
-          ),
-          _tf(
-            'date',
-            'Date (YYYY-MM-DD)',
-            hint: 'Leave blank for today',
-            keyboard: TextInputType.datetime,
-          ),
-        ],
-      );
+                : null),
+        _tf('date', 'Date (YYYY-MM-DD)',
+            hint: 'Leave blank for today', keyboard: TextInputType.datetime),
+      ]);
 
-  Widget _buildChiefComplaintStep() => Column(
-        children: [
-          _tf('cc.complaint', 'Chief complaint', maxLines: 2),
-          _tf('cc.location', 'Location'),
-          _tf('cc.sensation', 'Sensation'),
-          _tf(
-            'cc.modalities',
-            'Modalities (< worse / > better)',
-            maxLines: 2,
-          ),
-          _tf('cc.concomitants', 'Concomitants'),
-          _tf('cc.duration', 'Duration'),
-          _tf('cc.onset', 'Onset / Ailments from'),
-        ],
-      );
+  Widget _buildChiefComplaintStep() => Column(children: [
+        const Padding(
+          padding: EdgeInsets.only(bottom: 10),
+          child: VoiceLangSelector(),
+        ),
+        _tf('cc.complaint', 'Chief complaint', maxLines: 2, mic: true),
+        _tf('cc.location', 'Location', mic: true),
+        _tf('cc.sensation', 'Sensation', mic: true),
+        _tf('cc.modalities', 'Modalities (< worse / > better)',
+            maxLines: 2, mic: true),
+        _tf('cc.concomitants', 'Concomitants', mic: true),
+        _tf('cc.duration', 'Duration'),
+        _tf('cc.onset', 'Onset / Ailments from', mic: true),
+        _tf('cc.additional',
+            'Additional complaints — one per line (L/S/M/C each)',
+            maxLines: 4,
+            mic: true,
+            hint: 'e.g. Knee pain, right, stitching, < stairs, since 2y'),
+      ]);
 
   Widget _buildMindStep() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,30 +347,22 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
             spacing: 8,
             runSpacing: 4,
             children: _natureOptions
-                .map(
-                  (n) => FilterChip(
-                    label: Text(n),
-                    selected: _nature.contains(n),
-                    onSelected: (sel) => setState(
-                      () => sel ? _nature.add(n) : _nature.remove(n),
-                    ),
-                  ),
-                )
+                .map((n) => FilterChip(
+                      label: Text(n),
+                      selected: _nature.contains(n),
+                      onSelected: (sel) => setState(
+                          () => sel ? _nature.add(n) : _nature.remove(n)),
+                    ))
                 .toList(),
           ),
           const SizedBox(height: 12),
-          _tf(
-            'mind.natureOther',
-            'Other nature traits (one per line)',
-            maxLines: 2,
-          ),
+          _tf('mind.natureOther', 'Other nature traits (one per line)',
+            mic: true,
+              maxLines: 2),
           _tf('mind.conflict', 'Main emotional conflict', maxLines: 2),
           _tf('mind.fears', 'Fear(s) — one per line', maxLines: 3),
-          _tf(
-            'mind.stress',
-            'Stress / Trigger / Significant life event',
-            maxLines: 3,
-          ),
+          _tf('mind.stress', 'Stress / Trigger / Significant life event',
+              maxLines: 3),
           _tf('mind.relationships', 'Relationships', maxLines: 2),
         ],
       );
@@ -387,19 +370,14 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
   Widget _buildGnmStep() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _tf('gnm.dhs', 'DHS / Biological conflict', maxLines: 2),
+          _tf('gnm.dhs', 'DHS / Biological conflict', maxLines: 2, mic: true),
           _tf('gnm.theme', 'Conflict theme'),
           _sectionLabel('Phase'),
           SegmentedButton<String>(
             segments: const [
               ButtonSegment(
-                value: 'Conflict Active',
-                label: Text('Conflict Active'),
-              ),
-              ButtonSegment(
-                value: 'Healing',
-                label: Text('Healing'),
-              ),
+                  value: 'Conflict Active', label: Text('Conflict Active')),
+              ButtonSegment(value: 'Healing', label: Text('Healing')),
             ],
             selected: _gnmPhase.isEmpty ? {} : {_gnmPhase},
             emptySelectionAllowed: true,
@@ -420,10 +398,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
             segments: const [
               ButtonSegment(value: 'Hot', label: Text('Hot')),
               ButtonSegment(value: 'Chilly', label: Text('Chilly')),
-              ButtonSegment(
-                value: 'Ambithermal',
-                label: Text('Ambi'),
-              ),
+              ButtonSegment(value: 'Ambithermal', label: Text('Ambi')),
             ],
             selected: _thermals.isEmpty ? {} : {_thermals},
             emptySelectionAllowed: true,
@@ -446,70 +421,52 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
   Widget _buildExaminationStep() =>
       _tf('exam', 'Examination / Investigations', maxLines: 5);
 
-  Widget _buildTotalityStep() => Column(
-        children: [
-          _tf(
-            'tot.mental',
-            'Mental symptoms — one per line',
-            maxLines: 3,
+  Widget _buildTotalityStep() => Column(children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: _extracting ? null : _aiExtractTotality,
+            icon: _extracting
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.auto_awesome, size: 16),
+            label: const Text('AI: extract totality from case'),
           ),
-          _tf(
-            'tot.physical',
-            'Physical generals — one per line',
-            maxLines: 3,
-          ),
-          _tf(
-            'tot.particulars',
-            'Particulars — one per line',
-            maxLines: 3,
-          ),
-        ],
-      );
+        ),
+        _tf('tot.mental', 'Mental symptoms — one per line',
+            maxLines: 3, mic: true),
+        _tf('tot.physical', 'Physical generals — one per line',
+            maxLines: 3, mic: true),
+        _tf('tot.particulars', 'Particulars — one per line',
+            maxLines: 3, mic: true),
+      ]);
 
-  Widget _buildPrescriptionStep() => Column(
-        children: [
-          _tf('rx.remedy', 'Remedy'),
-          Row(
-            children: [
-              Expanded(
-                child: _tf(
-                  'rx.potency',
-                  'Potency',
-                  hint: '30C / 200C / 1M',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _tf('rx.dose', 'Dose'),
-              ),
-            ],
-          ),
-          _tf('rx.advice', 'Advice', maxLines: 3),
-        ],
-      );
+  Widget _buildPrescriptionStep() => Column(children: [
+        _tf('rx.remedy', 'Remedy'),
+        Row(children: [
+          Expanded(child: _tf('rx.potency', 'Potency', hint: '30C / 200C / 1M')),
+          const SizedBox(width: 12),
+          Expanded(child: _tf('rx.dose', 'Dose')),
+        ]),
+        _tf('rx.advice', 'Advice', maxLines: 3),
+      ]);
 
-  Widget _buildFollowUpStep() => Column(
-        children: [
-          _tf(
-            'fu.date',
-            'Follow-up date (YYYY-MM-DD)',
-            keyboard: TextInputType.datetime,
-          ),
-          _tf('fu.changes', 'Changes observed', maxLines: 3),
-          _tf('fu.remedy', 'Remedy'),
-          Row(
-            children: [
-              Expanded(child: _tf('fu.potency', 'Potency')),
-              const SizedBox(width: 12),
-              Expanded(child: _tf('fu.dose', 'Dose')),
-            ],
-          ),
-        ],
-      );
+  Widget _buildFollowUpStep() => Column(children: [
+        _tf('fu.date', 'Follow-up date (YYYY-MM-DD)',
+            keyboard: TextInputType.datetime),
+        _tf('fu.changes', 'Changes observed', maxLines: 3),
+        _tf('fu.remedy', 'Remedy'),
+        Row(children: [
+          Expanded(child: _tf('fu.potency', 'Potency')),
+          const SizedBox(width: 12),
+          Expanded(child: _tf('fu.dose', 'Dose')),
+        ]),
+      ]);
 
   Widget _buildReviewStep() {
     final cs = Theme.of(context).colorScheme;
-
     Widget row(String label, String value) => value.isEmpty
         ? const SizedBox.shrink()
         : Padding(
@@ -519,12 +476,11 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
               children: [
                 SizedBox(
                   width: 110,
-                  child: Text(
-                    label,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                  ),
+                  child: Text(label,
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelMedium
+                          ?.copyWith(color: cs.onSurfaceVariant)),
                 ),
                 Expanded(child: Text(value)),
               ],
@@ -542,32 +498,64 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
             row('Complaint', _v('cc.complaint')),
             row('Nature', _nature.join(', ')),
             row('GNM phase', _gnmPhase),
-            row(
-              'Remedy',
-              [
-                _v('rx.remedy'),
-                _v('rx.potency'),
-                _v('rx.dose'),
-              ].where((s) => s.isNotEmpty).join(' · '),
-            ),
+            row('Remedy',
+                [_v('rx.remedy'), _v('rx.potency'), _v('rx.dose')]
+                    .where((s) => s.isNotEmpty)
+                    .join(' · ')),
             const SizedBox(height: 6),
-            Text(
-              'Tap "Save Case" below to store this record locally.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-            ),
+            Text('Tap "Save Case" below to store this record locally.',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: cs.onSurfaceVariant)),
           ],
         ),
       ),
     );
   }
 
+  // -------------------------------------------------------------------------
+  // AI remedy suggestion (view mode)
+  // -------------------------------------------------------------------------
+
+
+  /// AI: reads CC + Mind + Physical Generals text and fills the three
+  /// totality fields. The doctor reviews/edits before saving.
+  Future<void> _aiExtractTotality() async {
+    setState(() => _extracting = true);
+    try {
+      final input = {
+        'chiefComplaint': _v('cc.complaint'),
+        'additionalComplaints': _v('cc.additional'),
+        'location': _v('cc.location'),
+        'sensation': _v('cc.sensation'),
+        'modalities': _v('cc.modalities'),
+        'concomitants': _v('cc.concomitants'),
+        'mindNature': _nature.toList(),
+        'mindOther': _v('mind.natureOther'),
+        'dhs': _v('gnm.dhs'),
+      };
+      final t = await OpenAIService.instance.extractTotality(input);
+      if (!mounted) return;
+      _c('tot.mental').text = t.mental.join('\n');
+      _c('tot.physical').text = t.physical.join('\n');
+      _c('tot.particulars').text = t.particulars.join('\n');
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Totality drafted — please review and edit.')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('AI failed: $e')));
+    } finally {
+      if (mounted) setState(() => _extracting = false);
+    }
+  }
+
   Future<void> _suggestRemedy() async {
     final c = widget.existingCase!;
     setState(() => _analyzing = true);
-
     try {
+      // Only the clinically relevant context — CC, Mind, Totality — is sent.
       final caseData = <String, dynamic>{
         'chiefComplaint': c.chiefComplaint.toMap(),
         'mind': c.mind.toMap(),
@@ -575,7 +563,6 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
       };
 
       final s = await OpenAIService.instance.getSuggestion(caseData);
-
       if (!mounted) return;
 
       final apply = await showDialog<bool>(
@@ -587,24 +574,56 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${s.remedy} · ${s.potency} · ${s.dose}',
-                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
+                Text('${s.remedy} · ${s.potency} · ${s.dose}',
+                    style: Theme.of(ctx)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 10),
-                Text(
-                  s.reasoning,
-                  style: Theme.of(ctx).textTheme.bodyMedium,
-                ),
+                Text(s.reasoning,
+                    style: Theme.of(ctx).textTheme.bodyMedium),
+                if (s.rubrics.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text('Suggested rubrics',
+                      style: Theme.of(ctx)
+                          .textTheme
+                          .labelLarge
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  ...s.rubrics.map((r) => Text('• $r',
+                      style: Theme.of(ctx).textTheme.bodySmall)),
+                ],
+                if (s.gnmConflict.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text('Possible GNM conflict',
+                      style: Theme.of(ctx)
+                          .textTheme
+                          .labelLarge
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Text(s.gnmConflict,
+                      style: Theme.of(ctx).textTheme.bodySmall),
+                ],
+                if (s.differentials.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text('Remedy comparison',
+                      style: Theme.of(ctx)
+                          .textTheme
+                          .labelLarge
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  ...s.differentials.map((d) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text('• $d',
+                            style: Theme.of(ctx).textTheme.bodySmall),
+                      )),
+                ],
                 const SizedBox(height: 10),
                 Text(
                   'Suggestion only — review before applying. Applying '
                   'overwrites the current prescription fields.',
                   style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                      ),
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -623,60 +642,49 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
       );
 
       if (apply == true && mounted) {
+        // Sync BOTH the controllers (edit mode) and the object (view mode).
         _c('rx.remedy').text = s.remedy;
         _c('rx.potency').text = s.potency;
         _c('rx.dose').text = s.dose;
-
         c.prescription
           ..remedy = s.remedy
           ..potency = s.potency
           ..dose = s.dose;
-
         await DatabaseHelper.instance.updateCase(c);
-
         if (!mounted) return;
-
         setState(() {});
-
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Prescription updated'),
-          ),
+          const SnackBar(content: Text('Prescription updated')),
         );
       }
     } catch (e) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Analysis failed: $e')),
       );
     } finally {
-      if (mounted) {
-        setState(() => _analyzing = false);
-      }
+      if (mounted) setState(() => _analyzing = false);
     }
   }
+
+  // -------------------------------------------------------------------------
+  // Quick follow-up entry (view mode) — bottom sheet
+  // -------------------------------------------------------------------------
 
   final _fuSheetFormKey = GlobalKey<FormState>();
 
   Future<void> _showAddFollowUpSheet() async {
     final c = widget.existingCase!;
 
-    _c('nfu.date').text =
-        DateTime.now().toIso8601String().split('T').first;
-
-    for (final k in [
-      'nfu.changes',
-      'nfu.remedy',
-      'nfu.potency',
-      'nfu.dose',
-    ]) {
+    // Reset sheet fields on every open; date defaults to today (YYYY-MM-DD).
+    _c('nfu.date').text = DateTime.now().toIso8601String().split('T').first;
+    for (final k in ['nfu.changes', 'nfu.remedy', 'nfu.potency', 'nfu.dose']) {
       _c(k).clear();
     }
 
     final saved = await showModalBottomSheet<bool>(
       context: context,
-      isScrollControlled: true,
+      isScrollControlled: true, // keeps fields above the keyboard
       showDragHandle: true,
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(
@@ -691,36 +699,51 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Add Follow-up',
-                style: Theme.of(ctx).textTheme.titleMedium,
-              ),
+              Text('Add Follow-up',
+                  style: Theme.of(ctx).textTheme.titleMedium),
               const SizedBox(height: 12),
-              _tf(
-                'nfu.date',
-                'Date (YYYY-MM-DD) *',
-                keyboard: TextInputType.datetime,
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Date is required'
-                    : null,
+              _tf('nfu.date', 'Date (YYYY-MM-DD) *',
+                  keyboard: TextInputType.datetime,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Date is required'
+                      : null),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Wrap(
+                  spacing: 8,
+                  children: ['Better', 'Same', 'Worse'].map((s) {
+                    return ActionChip(
+                      avatar: Icon(
+                        s == 'Better'
+                            ? Icons.trending_up
+                            : s == 'Worse'
+                                ? Icons.trending_down
+                                : Icons.trending_flat,
+                        size: 16,
+                      ),
+                      label: Text(s),
+                      onPressed: () {
+                        final c = _c('nfu.changes');
+                        final prefix = 'Patient reports: $s. ';
+                        if (!c.text.startsWith('Patient reports:')) {
+                          c.text = prefix + c.text;
+                        } else {
+                          c.text = c.text.replaceFirst(
+                              RegExp(r'^Patient reports: \w+\. '), prefix);
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
               ),
-              _tf(
-                'nfu.changes',
-                'Changes observed',
-                maxLines: 3,
-              ),
+              _tf('nfu.changes', 'Changes observed',
+                  maxLines: 3, mic: true),
               _tf('nfu.remedy', 'Remedy'),
-              Row(
-                children: [
-                  Expanded(
-                    child: _tf('nfu.potency', 'Potency'),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _tf('nfu.dose', 'Dose'),
-                  ),
-                ],
-              ),
+              Row(children: [
+                Expanded(child: _tf('nfu.potency', 'Potency')),
+                const SizedBox(width: 12),
+                Expanded(child: _tf('nfu.dose', 'Dose')),
+              ]),
               const SizedBox(height: 4),
               SizedBox(
                 width: double.infinity,
@@ -754,41 +777,36 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
     );
 
     c.followUps.add(entry);
-
     try {
       await DatabaseHelper.instance.updateCase(c);
-
       if (!mounted) return;
-
-      setState(() {});
-
+      setState(() {}); // read-only view re-renders with the new card
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Follow-up added')),
       );
     } catch (e) {
-      c.followUps.remove(entry);
-
+      c.followUps.remove(entry); // roll back the in-memory append on failure
       if (!mounted) return;
-
       setState(() {});
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Save failed: $e')),
       );
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Delete
+  // -------------------------------------------------------------------------
+
   Future<void> _confirmDelete() async {
     final c = widget.existingCase!;
-
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete case?'),
         content: Text(
-          'This permanently deletes "${c.patient.name}" (#${c.caseNo}) '
-          'from local storage. Consider running a backup first.',
-        ),
+            'This permanently deletes "${c.patient.name}" (#${c.caseNo}) '
+            'from local storage. Consider running a backup first.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -804,27 +822,22 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
         ],
       ),
     );
-
     if (ok != true || !mounted) return;
-
     await DatabaseHelper.instance.deleteCase(c.id!);
-
     if (!mounted) return;
-
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Case deleted')),
     );
-
     Navigator.pop(context);
   }
 
+  // -------------------------------------------------------------------------
+  // Read-only detail view (view mode)
+  // -------------------------------------------------------------------------
+
   Widget _kv(String label, String value) {
-    if (value.trim().isEmpty) {
-      return const SizedBox.shrink();
-    }
-
+    if (value.trim().isEmpty) return const SizedBox.shrink();
     final cs = Theme.of(context).colorScheme;
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
@@ -832,12 +845,11 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
         children: [
           SizedBox(
             width: 120,
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-            ),
+            child: Text(label,
+                style: Theme.of(context)
+                    .textTheme
+                    .labelMedium
+                    ?.copyWith(color: cs.onSurfaceVariant)),
           ),
           Expanded(child: Text(value)),
         ],
@@ -846,10 +858,8 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
   }
 
   Widget _viewSection(String title, List<Widget> rows) {
-    if (rows.whereType<Padding>().isEmpty) {
-      return const SizedBox.shrink();
-    }
-
+    // _kv() renders empty values as SizedBox.shrink — hide empty sections.
+    if (rows.whereType<Padding>().isEmpty) return const SizedBox.shrink();
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
@@ -857,12 +867,11 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-            ),
+            Text(title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleSmall
+                    ?.copyWith(color: Theme.of(context).colorScheme.primary)),
             const SizedBox(height: 8),
             ...rows,
           ],
@@ -873,19 +882,17 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
 
   Widget _buildReadOnlyView() {
     final c = widget.existingCase!;
-
     return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 96),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 96), // clear the FAB
       children: [
         _viewSection('Patient', [
           _kv('Name', c.patient.name),
           _kv(
-            'Age / Sex',
-            [
-              if (c.patient.age != null) '${c.patient.age}y',
-              if (c.patient.sex.isNotEmpty) c.patient.sex,
-            ].join(' / '),
-          ),
+              'Age / Sex',
+              [
+                if (c.patient.age != null) '${c.patient.age}y',
+                if (c.patient.sex.isNotEmpty) c.patient.sex,
+              ].join(' / ')),
           _kv('Occupation', c.patient.occupation),
           _kv('Case No.', c.caseNo),
           _kv('Date', c.date.split('T').first),
@@ -898,6 +905,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
           _kv('Concomitants', c.chiefComplaint.concomitants),
           _kv('Duration', c.chiefComplaint.duration),
           _kv('Onset / From', c.chiefComplaint.onsetAilmentsFrom),
+          _kv('Additional', c.chiefComplaint.additional),
         ]),
         _viewSection('Mind', [
           _kv('Nature', c.mind.nature.join(', ')),
@@ -914,10 +922,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
         _viewSection('Physical Generals', [
           _kv('Appetite', c.physicalGenerals.appetite),
           _kv('Thirst', c.physicalGenerals.thirst),
-          _kv(
-            'Desires / Aversions',
-            c.physicalGenerals.desiresAversions,
-          ),
+          _kv('Desires / Aversions', c.physicalGenerals.desiresAversions),
           _kv('Thermals', c.physicalGenerals.thermals),
           _kv('Sleep', c.physicalGenerals.sleep),
           _kv('Stool / Urine', c.physicalGenerals.stoolUrine),
@@ -946,17 +951,20 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
             _kv('Date', c.followUps[i].date),
             _kv('Changes', c.followUps[i].changes),
             _kv(
-              'Prescription',
-              [
-                c.followUps[i].prescription.remedy,
-                c.followUps[i].prescription.potency,
-                c.followUps[i].prescription.dose,
-              ].where((s) => s.isNotEmpty).join(' · '),
-            ),
+                'Prescription',
+                [
+                  c.followUps[i].prescription.remedy,
+                  c.followUps[i].prescription.potency,
+                  c.followUps[i].prescription.dose,
+                ].where((s) => s.isNotEmpty).join(' · ')),
           ]),
       ],
     );
   }
+
+  // -------------------------------------------------------------------------
+  // Stepper scaffold
+  // -------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -971,19 +979,18 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
       ('Examination / Investigations', _buildExaminationStep()),
       ('Totality', _buildTotalityStep()),
       ('Prescription', _buildPrescriptionStep()),
+      // Follow-up removed from first consultation — added later from the
+      // case view via the "Add Follow-up" button when the patient returns.
       ('Review & Save', _buildReviewStep()),
     ];
-
     final lastIndex = steps.length - 1;
-    final existing = widget.existingCase;
 
+    final existing = widget.existingCase;
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          existing == null
-              ? 'New Case'
-              : (_viewMode ? existing.patient.name : 'Edit Case'),
-        ),
+        title: Text(existing == null
+            ? 'New Case'
+            : (_viewMode ? existing.patient.name : 'Edit Case')),
         actions: [
           if (existing != null && _viewMode)
             IconButton(
@@ -991,10 +998,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                      ),
-                    )
+                      child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.auto_awesome_outlined),
               tooltip: 'Analyze (AI remedy suggestion)',
               onPressed: _analyzing ? null : _suggestRemedy,
@@ -1023,78 +1027,64 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
       body: _viewMode
           ? _buildReadOnlyView()
           : Form(
-              key: _formKey,
-              child: Stepper(
-                type: StepperType.vertical,
-                currentStep: _currentStep,
-                onStepTapped: (i) =>
-                    setState(() => _currentStep = i),
-                onStepContinue: () {
-                  if (_currentStep < lastIndex) {
-                    setState(() => _currentStep++);
-                  } else {
-                    _saveCase();
-                  }
-                },
-                onStepCancel: _currentStep == 0
-                    ? null
-                    : () => setState(() => _currentStep--),
-                controlsBuilder: (context, details) {
-                  final isLast = _currentStep == lastIndex;
-
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Row(
-                      children: [
-                        FilledButton.icon(
-                          onPressed:
-                              _saving ? null : details.onStepContinue,
-                          icon: _saving
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Icon(
-                                  isLast
-                                      ? Icons.save_outlined
-                                      : Icons.arrow_forward,
-                                ),
-                          label: Text(
-                            isLast
-                                ? (widget.existingCase == null
-                                    ? 'Save Case'
-                                    : 'Update Case')
-                                : 'Continue',
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (details.onStepCancel != null)
-                          TextButton(
-                            onPressed: details.onStepCancel,
-                            child: const Text('Back'),
-                          ),
-                      ],
-                    ),
-                  );
-                },
-                steps: [
-                  for (var i = 0; i < steps.length; i++)
-                    Step(
-                      title: Text(steps[i].$1),
-                      content: steps[i].$2,
-                      isActive: _currentStep >= i,
-                      state: _currentStep > i
-                          ? StepState.complete
-                          : (_currentStep == i
-                              ? StepState.editing
-                              : StepState.indexed),
-                    ),
-                ],
+        key: _formKey,
+        child: Stepper(
+          type: StepperType.vertical,
+          currentStep: _currentStep,
+          onStepTapped: (i) => setState(() => _currentStep = i),
+          onStepContinue: () {
+            if (_currentStep < lastIndex) {
+              setState(() => _currentStep++);
+            } else {
+              _saveCase();
+            }
+          },
+          onStepCancel: _currentStep == 0
+              ? null
+              : () => setState(() => _currentStep--),
+          controlsBuilder: (context, details) {
+            final isLast = _currentStep == lastIndex;
+            return Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Row(children: [
+                FilledButton.icon(
+                  onPressed: _saving ? null : details.onStepContinue,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(isLast ? Icons.save_outlined : Icons.arrow_forward),
+                  label: Text(isLast
+                      ? (widget.existingCase == null
+                          ? 'Save Case'
+                          : 'Update Case')
+                      : 'Continue'),
+                ),
+                const SizedBox(width: 8),
+                if (details.onStepCancel != null)
+                  TextButton(
+                    onPressed: details.onStepCancel,
+                    child: const Text('Back'),
+                  ),
+              ]),
+            );
+          },
+          steps: [
+            for (var i = 0; i < steps.length; i++)
+              Step(
+                title: Text(steps[i].$1),
+                content: steps[i].$2,
+                isActive: _currentStep >= i,
+                state: _currentStep > i
+                    ? StepState.complete
+                    : (_currentStep == i
+                        ? StepState.editing
+                        : StepState.indexed),
               ),
-            ),
+          ],
+        ),
+      ),
     );
   }
 }
