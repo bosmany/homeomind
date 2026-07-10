@@ -16,7 +16,7 @@ class HomeoMindApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Defining a professional, unified color palette
+    // 1. Professional, unified color palette
     const primaryGreen = Color(0xFF1D4D34);
     const softBackground = Color(0xFFF7FAF7);
     const darkText = Color(0xFF182D20);
@@ -31,19 +31,25 @@ class HomeoMindApp extends StatelessWidget {
           seedColor: primaryGreen,
           surface: Colors.white,
         ),
-        // 2. Refined Typography for a premium look
+        // 2. Refined typography
         textTheme: GoogleFonts.interTextTheme().copyWith(
           displaySmall: GoogleFonts.fraunces(
             fontSize: 28,
             fontWeight: FontWeight.w600,
             color: darkText,
           ),
+          titleLarge: GoogleFonts.fraunces(
+            fontWeight: FontWeight.w700,
+            color: darkText,
+          ),
           bodyMedium: const TextStyle(fontSize: 15, color: Color(0xFF4A554A)),
         ),
         // 3. Modern, flat component design
-        cardTheme: CardTheme(
+        // FIX: CardThemeData (not CardTheme) — required by Flutter 3.4x
+        cardTheme: CardThemeData(
           elevation: 0,
           color: Colors.white,
+          margin: const EdgeInsets.symmetric(vertical: 6),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
             side: const BorderSide(color: Color(0xFFE0E6DE), width: 1),
