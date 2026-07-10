@@ -39,6 +39,7 @@ class DatabaseHelper {
   /// They behave like real cases (viewable, editable, deletable).
   static Future<void> _seedDemoCases(Database db) async {
     final now = DateTime.now().toIso8601String();
+
     final demos = [
       {
         'case_no': 'UB-101',
@@ -51,18 +52,18 @@ class DatabaseHelper {
             'name': 'Ramesh Kulkarni',
             'age': 46,
             'sex': 'M',
-            'occupation': 'Accountant'
+            'occupation': 'Accountant',
           },
           'chiefComplaint': {
             'complaint': 'Migraine, right-sided, throbbing',
             'location': 'Right temple to eye',
             'modalities': '< sun exposure, noise; > pressure, dark room',
-            'duration': '8 years'
+            'duration': '8 years',
           },
           'prescription': {
             'remedy': 'Belladonna',
             'potency': '200C',
-            'dose': 'Single dose, SL BD x 7d'
+            'dose': 'Single dose, SL BD x 7d',
           },
           'followUps': [],
           'createdAt': now,
@@ -82,18 +83,17 @@ class DatabaseHelper {
             'name': 'Sadia Parveen',
             'age': 33,
             'sex': 'F',
-            'occupation': 'Teacher'
+            'occupation': 'Teacher',
           },
           'chiefComplaint': {
             'complaint': 'Anxiety with palpitations, anticipatory worry',
-            'modalities':
-                '< before events, crowds; > company, reassurance',
-            'duration': '2 years'
+            'modalities': '< before events, crowds; > company, reassurance',
+            'duration': '2 years',
           },
           'prescription': {
             'remedy': 'Argentum Nitricum',
             'potency': '30C',
-            'dose': 'BD x 15d'
+            'dose': 'BD x 15d',
           },
           'followUps': [],
           'createdAt': now,
@@ -113,18 +113,17 @@ class DatabaseHelper {
             'name': 'Arjun Mehta',
             'age': 12,
             'sex': 'M',
-            'occupation': 'Student'
+            'occupation': 'Student',
           },
           'chiefComplaint': {
             'complaint': 'Recurrent tonsillitis, right side first',
-            'modalities':
-                '< cold drinks, weather change; > warm drinks',
-            'duration': 'Since age 8'
+            'modalities': '< cold drinks, weather change; > warm drinks',
+            'duration': 'Since age 8',
           },
           'prescription': {
             'remedy': 'Lycopodium',
             'potency': '30C',
-            'dose': 'OD x 10d'
+            'dose': 'OD x 10d',
           },
           'followUps': [],
           'createdAt': now,
@@ -217,9 +216,7 @@ class DatabaseHelper {
       whereArgs: [id],
     );
 
-    return rows.isEmpty
-        ? null
-        : HomeoCase.fromDbMap(rows.first);
+    return rows.isEmpty ? null : HomeoCase.fromDbMap(rows.first);
   }
 
   /// Newest first; optional name/caseNo search for the dashboard list.
