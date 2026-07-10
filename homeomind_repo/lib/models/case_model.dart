@@ -46,6 +46,7 @@ class ChiefComplaint {
   String concomitants;
   String duration;
   String onsetAilmentsFrom;
+  String additional; // extra complaints, one per line (LSMC-style)
 
   ChiefComplaint({
     this.complaint = '',
@@ -55,6 +56,7 @@ class ChiefComplaint {
     this.concomitants = '',
     this.duration = '',
     this.onsetAilmentsFrom = '',
+    this.additional = '',
   });
 
   Map<String, dynamic> toMap() => {
@@ -65,6 +67,7 @@ class ChiefComplaint {
         'concomitants': concomitants,
         'duration': duration,
         'onsetAilmentsFrom': onsetAilmentsFrom,
+        'additional': additional,
       };
 
   factory ChiefComplaint.fromMap(Map<String, dynamic> m) => ChiefComplaint(
@@ -75,6 +78,7 @@ class ChiefComplaint {
         concomitants: m['concomitants'] ?? '',
         duration: m['duration'] ?? '',
         onsetAilmentsFrom: m['onsetAilmentsFrom'] ?? '',
+        additional: m['additional'] ?? '',
       );
 }
 
