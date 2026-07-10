@@ -10,6 +10,7 @@ import '../data/backup_service.dart';
 import '../data/db_helper.dart';
 import '../models/case_model.dart';
 import 'ui_case_detail.dart';
+import 'ui_appointments.dart';
 import 'ui_settings.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -83,16 +84,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('HomeoMind',
-            style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text(
+          'HomeoMind',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
         actions: [
+          IconButton(
+            tooltip: 'Appointments',
+            icon: const Icon(Icons.calendar_month_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const AppointmentsScreen(),
+              ),
+            ),
+          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
               if (value == 'backup') _runBackup();
               if (value == 'settings') {
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SettingsScreen(),
+                  ),
+                );
               }
             },
             itemBuilder: (_) => const [
@@ -155,17 +172,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
+
     if (_cases.isEmpty) {
       return _EmptyState(searching: _searchCtrl.text.isNotEmpty);
     }
+
     return RefreshIndicator(
       onRefresh: _loadCases,
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 96), // clear the FAB
         itemCount: _cases.length + 1, // +1 for the Instagram bridge card
         itemBuilder: (context, i) {
-          if (i == _cases.length) return const InstagramBridgeCard();
-          return _CaseCard(homeoCase: _cases[i], onChanged: _loadCases);
+          if (i == _cases.length) {
+            return const InstagramBridgeCard();
+          }
+
+          return _CaseCard(
+            homeoCase: _cases[i],
+            onChanged: _loadCases,
+          );
         },
       ),
     );
@@ -177,7 +202,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 // ---------------------------------------------------------------------
 
 class _CaseCard extends StatelessWidget {
-  const _CaseCard({required this.homeoCase, required this.onChanged});
+  const _CaseCard({
+    required this.homeoCase,
+    required this.onChanged,
+  });
 
   final HomeoCase homeoCase;
   final VoidCallback onChanged;
@@ -185,10 +213,22 @@ class _CaseCard extends StatelessWidget {
   String _formatDate(String iso) {
     final d = DateTime.tryParse(iso);
     if (d == null) return iso;
+
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
+
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
 
@@ -196,6 +236,7 @@ class _CaseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final p = homeoCase.patient;
+
     final ageSex = [
       if (p.age != null) '${p.age}y',
       if (p.sex.isNotEmpty) p.sex,
@@ -209,9 +250,12 @@ class _CaseCard extends StatelessWidget {
           await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => CaseDetailScreen(existingCase: homeoCase),
+              builder: (_) => CaseDetailScreen(
+                existingCase: homeoCase,
+              ),
             ),
           );
+
           onChanged(); // refresh list after edit/delete
         },
         child: Padding(
@@ -222,7 +266,9 @@ class _CaseCard extends StatelessWidget {
                 radius: 22,
                 backgroundColor: cs.primaryContainer,
                 child: Text(
-                  p.name.isNotEmpty ? p.name[0].toUpperCase() : '?',
+                  p.name.isNotEmpty
+                      ? p.name[0].toUpperCase()
+                      : '?',
                   style: TextStyle(
                     color: cs.onPrimaryContainer,
                     fontWeight: FontWeight.w600,
@@ -235,11 +281,15 @@ class _CaseCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      p.name.isNotEmpty ? p.name : '(Unnamed patient)',
+                      p.name.isNotEmpty
+                          ? p.name
+                          : '(Unnamed patient)',
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                          ?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -247,10 +297,14 @@ class _CaseCard extends StatelessWidget {
                     Text(
                       [
                         if (ageSex.isNotEmpty) ageSex,
-                        if (homeoCase.chiefComplaint.complaint.isNotEmpty)
+                        if (homeoCase
+                            .chiefComplaint.complaint.isNotEmpty)
                           homeoCase.chiefComplaint.complaint,
                       ].join(' · '),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(
                             color: cs.onSurfaceVariant,
                           ),
                       maxLines: 1,
@@ -265,7 +319,9 @@ class _CaseCard extends StatelessWidget {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: cs.secondaryContainer,
                       borderRadius: BorderRadius.circular(8),
@@ -274,7 +330,10 @@ class _CaseCard extends StatelessWidget {
                       homeoCase.caseNo.isNotEmpty
                           ? '#${homeoCase.caseNo}'
                           : '#—',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(
                             color: cs.onSecondaryContainer,
                             fontWeight: FontWeight.w600,
                           ),
@@ -283,7 +342,10 @@ class _CaseCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     _formatDate(homeoCase.date),
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelSmall
+                        ?.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
                   ),
@@ -302,19 +364,24 @@ class _CaseCard extends StatelessWidget {
 // ---------------------------------------------------------------------
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.searching});
+  const _EmptyState({
+    required this.searching,
+  });
 
   final bool searching;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            searching ? Icons.search_off : Icons.folder_open_outlined,
+            searching
+                ? Icons.search_off
+                : Icons.folder_open_outlined,
             size: 56,
             color: cs.outline,
           ),
@@ -333,7 +400,9 @@ class _EmptyState extends StatelessWidget {
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant),
+                ?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
           ),
         ],
       ),
@@ -350,17 +419,22 @@ class _EmptyState extends StatelessWidget {
 class InstagramBridgeCard extends StatelessWidget {
   const InstagramBridgeCard({super.key});
 
-  static final Uri _profile =
-      Uri.parse('https://www.instagram.com/muhammadibrahimubharay/');
+  static final Uri _profile = Uri.parse(
+    'https://www.instagram.com/muhammadibrahimubharay/',
+  );
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => launchUrl(_profile, mode: LaunchMode.externalApplication),
+        onTap: () => launchUrl(
+          _profile,
+          mode: LaunchMode.externalApplication,
+        ),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
@@ -371,30 +445,49 @@ class InstagramBridgeCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF7A3EB1), Color(0xFFE1306C), Color(0xFFFCAF45)],
+                    colors: [
+                      Color(0xFF7A3EB1),
+                      Color(0xFFE1306C),
+                      Color(0xFFFCAF45),
+                    ],
                   ),
                 ),
-                child: const Icon(Icons.camera_alt_outlined, color: Colors.white),
+                child: const Icon(
+                  Icons.camera_alt_outlined,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Clinical Insights',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600)),
-                    Text('Latest reels & posts from the clinic\'s Instagram',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant)),
+                    Text(
+                      'Clinical Insights',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    Text(
+                      'Latest reels & posts from the clinic\'s Instagram',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                    ),
                   ],
                 ),
               ),
-              Icon(Icons.open_in_new, size: 18, color: cs.onSurfaceVariant),
+              Icon(
+                Icons.open_in_new,
+                size: 18,
+                color: cs.onSurfaceVariant,
+              ),
             ],
           ),
         ),
