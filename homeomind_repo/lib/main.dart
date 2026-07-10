@@ -1,5 +1,3 @@
-// main.dart — HomeoMind: high-contrast dark theme + router.
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -18,76 +16,52 @@ class HomeoMindApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFF35C982);
-    final scheme =
-        ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark);
-
-    final darkText = GoogleFonts.interTextTheme(
-      ThemeData(brightness: Brightness.dark).textTheme,
-    ).apply(bodyColor: Colors.white, displayColor: Colors.white).copyWith(
-          headlineSmall: GoogleFonts.fraunces(
-              fontWeight: FontWeight.w700, color: Colors.white),
-          titleLarge: GoogleFonts.fraunces(
-              fontWeight: FontWeight.w700, color: Colors.white),
-          titleMedium: GoogleFonts.inter(
-              fontWeight: FontWeight.w600, color: Colors.white),
-        );
+    // 1. Defining a professional, unified color palette
+    const primaryGreen = Color(0xFF1D4D34);
+    const softBackground = Color(0xFFF7FAF7);
+    const darkText = Color(0xFF182D20);
 
     return MaterialApp(
       title: 'HomeoMind',
       debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.dark,
-      darkTheme: ThemeData(
+      theme: ThemeData(
         useMaterial3: true,
-        colorScheme: scheme,
-        scaffoldBackgroundColor: const Color(0xFF0E1512),
-        textTheme: darkText,
-        appBarTheme: AppBarTheme(
-          centerTitle: false,
-          backgroundColor: const Color(0xFF14201A),
-          foregroundColor: Colors.white,
-          elevation: 0,
-          titleTextStyle: GoogleFonts.fraunces(
-              fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white),
+        scaffoldBackgroundColor: softBackground,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: primaryGreen,
+          surface: Colors.white,
         ),
-        cardTheme: CardThemeData(
+        // 2. Refined Typography for a premium look
+        textTheme: GoogleFonts.interTextTheme().copyWith(
+          displaySmall: GoogleFonts.fraunces(
+            fontSize: 28,
+            fontWeight: FontWeight.w600,
+            color: darkText,
+          ),
+          bodyMedium: const TextStyle(fontSize: 15, color: Color(0xFF4A554A)),
+        ),
+        // 3. Modern, flat component design
+        cardTheme: CardTheme(
           elevation: 0,
-          color: const Color(0xFF17231C),
-          margin: const EdgeInsets.symmetric(vertical: 6),
+          color: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFF2A3B31), width: 0.8),
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: Color(0xFFE0E6DE), width: 1),
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFF3B5245)),
-          ),
-          isDense: true,
           filled: true,
-          fillColor: const Color(0xFF14201A),
-          labelStyle: const TextStyle(color: Color(0xFFA9C4B4)),
-          hintStyle: const TextStyle(color: Color(0xFF6E8578)),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            backgroundColor: seed,
-            foregroundColor: const Color(0xFF06281A),
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-            textStyle: GoogleFonts.inter(fontWeight: FontWeight.w700),
+          fillColor: const Color(0xFFF0F4F0),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
           ),
         ),
-        floatingActionButtonTheme: FloatingActionButtonThemeData(
-          backgroundColor: seed,
-          foregroundColor: const Color(0xFF06281A),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        ),
-        snackBarTheme: const SnackBarThemeData(
-          backgroundColor: Color(0xFF2A3B31),
-          contentTextStyle: TextStyle(color: Colors.white),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+          foregroundColor: primaryGreen,
         ),
       ),
       initialRoute: '/',
