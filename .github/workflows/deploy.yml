@@ -21,21 +21,28 @@ jobs:
       name: github-pages
     steps:
       - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
+
       - name: Create web platform
         run: flutter create . --platforms web --project-name homeomind
+
       - name: Get dependencies
         run: flutter pub get
+
       - name: Setup sqflite web
         run: dart run sqflite_common_ffi_web:setup
+
       - name: Build web
         run: flutter build web --release --base-href "/"
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: homeomind_repo/build/web
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
