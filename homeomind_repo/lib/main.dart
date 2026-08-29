@@ -5,9 +5,12 @@ import 'ui/ui_case_detail.dart';
 import 'ui/ui_dashboard.dart';
 import 'ui/ui_doc_login.dart';
 import 'ui/ui_patient_home.dart';
+import 'ui/voice_input.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await VoiceMode.load(); // so the persisted dictation-engine choice is in
+  // effect before the first mic button renders
   runApp(const HomeoMindApp());
 }
 

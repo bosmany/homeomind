@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/ai_service.dart';
+import 'voice_input.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -158,6 +159,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         .textTheme
                         .bodySmall
                         ?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Dictation',
+                      style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 6),
+                  Text(
+                    'The mic buttons use your browser\'s free built-in '
+                    'speech recognition by default. Whisper transcription '
+                    'is usually far more accurate — especially for fast '
+                    'speech or Hindi/Marathi — but uploads the recording '
+                    'to OpenAI using your API key above, with a short '
+                    'delay per phrase.',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 10),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: VoiceMode.useWhisper,
+                    builder: (_, useWhisper, __) => SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Use Whisper for dictation'),
+                      subtitle: !_hasKey && useWhisper
+                          ? const Text('Add an API key above to use this')
+                          : null,
+                      value: useWhisper,
+                      onChanged: (v) => VoiceMode.setUseWhisper(v),
+                    ),
                   ),
                 ],
               ),

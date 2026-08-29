@@ -28,7 +28,7 @@ dependencies:
   http: ^1.2.1
 
   # UI
-  google_fonts: ^6.2.1
+  google_fonts: ^8.2.1
   url_launcher: ^6.2.5
 
 dev_dependencies:

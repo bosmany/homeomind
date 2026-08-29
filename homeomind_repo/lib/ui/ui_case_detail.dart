@@ -359,11 +359,14 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
           _tf('mind.natureOther', 'Other nature traits (one per line)',
             mic: true,
               maxLines: 2),
-          _tf('mind.conflict', 'Main emotional conflict', maxLines: 2),
-          _tf('mind.fears', 'Fear(s) — one per line', maxLines: 3),
+          _tf('mind.conflict', 'Main emotional conflict',
+              maxLines: 2, mic: true),
+          _tf('mind.fears', 'Fear(s) — one per line',
+              maxLines: 3, mic: true),
           _tf('mind.stress', 'Stress / Trigger / Significant life event',
-              maxLines: 3),
-          _tf('mind.relationships', 'Relationships', maxLines: 2),
+              maxLines: 3, mic: true),
+          _tf('mind.relationships', 'Relationships',
+              maxLines: 2, mic: true),
         ],
       );
 
@@ -392,7 +395,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
         children: [
           _tf('pg.appetite', 'Appetite'),
           _tf('pg.thirst', 'Thirst'),
-          _tf('pg.desires', 'Desires / Aversions', maxLines: 2),
+          _tf('pg.desires', 'Desires / Aversions', maxLines: 2, mic: true),
           _sectionLabel('Thermals'),
           SegmentedButton<String>(
             segments: const [
@@ -413,13 +416,13 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
       );
 
   Widget _buildPastHistoryStep() =>
-      _tf('h.past', 'Past history', maxLines: 4);
+      _tf('h.past', 'Past history', maxLines: 4, mic: true);
 
   Widget _buildFamilyHistoryStep() =>
-      _tf('h.family', 'Family history', maxLines: 4);
+      _tf('h.family', 'Family history', maxLines: 4, mic: true);
 
   Widget _buildExaminationStep() =>
-      _tf('exam', 'Examination / Investigations', maxLines: 5);
+      _tf('exam', 'Examination / Investigations', maxLines: 5, mic: true);
 
   Widget _buildTotalityStep() => Column(children: [
         Align(
@@ -450,19 +453,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> {
           const SizedBox(width: 12),
           Expanded(child: _tf('rx.dose', 'Dose')),
         ]),
-        _tf('rx.advice', 'Advice', maxLines: 3),
-      ]);
-
-  Widget _buildFollowUpStep() => Column(children: [
-        _tf('fu.date', 'Follow-up date (YYYY-MM-DD)',
-            keyboard: TextInputType.datetime),
-        _tf('fu.changes', 'Changes observed', maxLines: 3),
-        _tf('fu.remedy', 'Remedy'),
-        Row(children: [
-          Expanded(child: _tf('fu.potency', 'Potency')),
-          const SizedBox(width: 12),
-          Expanded(child: _tf('fu.dose', 'Dose')),
-        ]),
+        _tf('rx.advice', 'Advice', maxLines: 3, mic: true),
       ]);
 
   Widget _buildReviewStep() {
