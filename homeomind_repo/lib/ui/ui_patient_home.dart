@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'instagram_embed.dart';
+import 'voice_input.dart';
 
 const _kGreenDark = Color(0xFF0F2A1C);
 const _kGreen = Color(0xFF1D4D34);
@@ -197,11 +198,14 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                               const InputDecoration(labelText: 'Time slot'),
                         ),
                         const SizedBox(height: 10),
+                        const VoiceLangSelector(),
+                        const SizedBox(height: 6),
                         TextField(
                             controller: _concern,
                             maxLines: 2,
-                            decoration: const InputDecoration(
-                                labelText: 'Health concern (brief)')),
+                            decoration: InputDecoration(
+                                labelText: 'Health concern (brief)',
+                                suffixIcon: MicButton(controller: _concern))),
                         const SizedBox(height: 14),
                         SizedBox(
                           width: double.infinity,

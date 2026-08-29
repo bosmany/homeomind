@@ -78,7 +78,17 @@ class OpenAIService {
 
   static const _storage = FlutterSecureStorage();
   static const _keyName = 'openai_api_key';
-  static const _endpoint = 'https://api.openai.com/v1/chat/completions';
+  // Routed through a stateless CORS proxy (cf-worker/) rather than
+  // api.openai.com directly — this is a static Flutter Web app with no
+  // backend, and OpenAI's API doesn't send CORS headers that allow a
+  // browser to call it directly, so a direct call fails before it ever
+  // reaches OpenAI. The proxy forwards the request/Authorization header
+  // verbatim and adds the missing CORS headers; it never sees or stores a
+  // key of its own. TODO: replace <subdomain> with the real
+  // *.workers.dev subdomain shown in the "Deploy CF Worker" Action's log
+  // after its first successful run.
+  static const _endpoint =
+      'https://homeomind-ai-proxy.<subdomain>.workers.dev/v1/chat/completions';
   static const _model = 'gpt-4o-mini';
 
   Future<void> setApiKey(String key) =>
